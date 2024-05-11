@@ -1,0 +1,9 @@
+/*__pycache__/
+.env
+*.pyc
+*.DS_Store
+llm_weights
+prune_models/*
+out/*
+test
+logs
