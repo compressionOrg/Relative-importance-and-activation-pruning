@@ -36,7 +36,7 @@ def main():
     parser.add_argument('--sparsity_ratio', type=float, default=0.5, help='Sparsity level')
     parser.add_argument("--sparsity_type", type=str, default="unstructured", help="Sparsity type, choose from unstructured, 4:8, 1:4, 2:4, 3:4. \
                         Please choose from the corresponding sparsity ratio")
-    parser.add_argument("--prune_method", type=str, choices=["svd_finetuned", "magnitude", "ri", "wanda", "svd_ri", "svd", "sparsegpt", "ria", "wentropy", "wdentropy", "mentropy", "entropy", "semi"])
+    parser.add_argument("--prune_method", type=str, choices=["svd_finetuned", "magnitude", "ri", "wanda", "svd_ri", "svd", "sparsegpt", "ria", "wentropy", "mentropy"])
     parser.add_argument("--cache_dir", default="llm_weights", type=str )
     parser.add_argument('--save', action="store_true")
     parser.add_argument('--save_model', type=str, default=None, help='Path to save the pruned model.')
@@ -81,15 +81,9 @@ def main():
     print(model)
     if args.sparsity_ratio != 0:
         print("pruning starts")
-        from lib.prune import prune_magnitude, prune_sparsegpt, prune_ria, check_sparsity, prune_entropy, prune_semi
-        if args.prune_method == "semi":
-            prune_semi(args, model, tokenizer, device, prune_n=prune_n, prune_m=prune_m)
-        elif args.prune_method == "entropy":
-            prune_entropy(args, model, tokenizer, device, prune_n=prune_n, prune_m=prune_m)
-        elif args.prune_method == "wentropy":
-            prune_entropy(args, model, tokenizer, device, prune_n=prune_n, prune_m=prune_m)
-        elif args.prune_method == "wdentropy":
-            prune_entropy(args, model, tokenizer, device, prune_n=prune_n, prune_m=prune_m)
+        from lib.prune import prune_magnitude, prune_sparsegpt, prune_ria, check_sparsity, prune_wentropy
+        if args.prune_method == "wentropy":
+            prune_wentropy(args, model, tokenizer, device, prune_n=prune_n, prune_m=prune_m)
         elif args.prune_method == "wanda":
             prune_ria(args, model, tokenizer, device, prune_n=prune_n, prune_m=prune_m)
         elif args.prune_method == "magnitude":
@@ -145,7 +139,8 @@ def main():
     
     if args.eval_zero_shot:
         accelerate=True
-        task_list = ["boolq", "rte", "hellaswag", "arc_challenge", "mnli"]
+        # task_list = ["boolq", "rte", "hellaswag", "arc_challenge", "mnli"]
+        task_list = ["boolq", "rte","hellaswag","winogrande", "arc_easy","arc_challenge", "openbookqa"]
         num_shot = 0
         
         

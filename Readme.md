@@ -28,8 +28,12 @@ conda activate ria
 Step 2: Install relevant packages
 
 ```
-pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/nightly/cu121
 
+pip install -r requirement.txt --extra-index-url https://download.pytorch.org/whl/nightly/cu121
+pip install https://download.pytorch.org/whl/cu121/torch-2.1.0%2Bcu121-cp310-cp310-linux_x86_64.whl
+pip install https://download.pytorch.org/whl/cu121/torchaudio-2.1.0%2Bcu121-cp310-cp310-linux_x86_64.whl
+pip install https://download.pytorch.org/whl/cu121/torchvision-0.17.1%2Bcu121-cp310-cp310-linux_x86_64.whl
+pip install -r requirement.txt
 ```
 
 
@@ -46,7 +50,7 @@ RIA with unstructured 50% sparsity
 
 ```
 python main.py \
-	--model YOUR_MODEL_NAME \
+	--model Enoch/llama-7b-hf \
 	--prune_method ria \
 	--sparsity_ratio 0.5 \
 	--sparsity_type unstructured \

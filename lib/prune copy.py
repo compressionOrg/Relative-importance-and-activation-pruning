@@ -520,18 +520,97 @@ def prune_entropy(args, model, tokenizer, device=torch.device("cuda:0"), prune_n
                 pr = torch.abs(W_metric)/torch.sum(torch.abs(W_metric), dim=0)
                 pc = torch.abs(W_metric)/torch.sum(torch.abs(W_metric), dim=1).reshape(-1, 1)
                 W_metric = torch.abs((-pr * torch.log(pr)) - (pc * torch.log(pc)))
-            elif args.prune_method == "entropy":   
+            elif args.prune_method == "entropy": 
+                # W_metric = (-torch.abs(W)/torch.sum(torch.abs(W)) * torch.log(torch.abs(W)/torch.sum(torch.abs(W))) * W).reshape(-1, 1)* torch.sqrt(wrapped_layers[name].scaler_row.reshape((1,-1)))
+                
+                # H1
+                # pr = torch.abs(W)/torch.sum(torch.abs(W), dim=0)
+                # W_metric = torch.abs(-pr * torch.log(pr)) * torch.sqrt(wrapped_layers[name].scaler_row.reshape((1,-1)))
+                
+                
                 # H1 + H2
                 pr = torch.abs(W)/torch.sum(torch.abs(W), dim=0)
                 pc = torch.abs(W)/torch.sum(torch.abs(W), dim=1).reshape(-1, 1)
                 W_metric = torch.abs((-pr * torch.log(pr)) - (pc * torch.log(pc))) * torch.sqrt(wrapped_layers[name].scaler_row.reshape((1,-1)))
+                
+    
+                # # H2
+                # pc = torch.abs(W)/torch.sum(torch.abs(W), dim=1).reshape(-1, 1)
+                # W_metric = torch.abs(-pc * torch.log(pc)) * torch.sqrt(wrapped_layers[name].scaler_row.reshape((1,-1)))
+                
+                # # 计算整体矩阵的值，返回NAN值
+                # pr = torch.abs(W)/torch.sum(torch.abs(W))
+                # W_metric = torch.abs(-pr * torch.log(pr)) * torch.sqrt(wrapped_layers[name].scaler_row.reshape((1,-1)))
+                
+                
+                # # 计算整个矩阵的平均值
+                # mean_global = torch.mean(W)
+                # # 计算每个元素相对于全局均值的方差
+                # variance_tensor = (W - mean_global) ** 2
+                # # 创建正态分布，使用全局均值，每个元素的标准差为其方差的平方根
+                # dist = Normal(mean_global, torch.sqrt(variance_tensor))
+                # W_metric = dist.entropy()* torch.sqrt(wrapped_layers[name].scaler_row.reshape((1,-1)))
+
+                # W_metric = torch.abs(W)
             W_mask = (torch.zeros_like(W_metric) == 1)  ## initialize a mask to be all False
+            # if prune_n != 0:
+            #     # 遍历权重的列
+            #     for ii in range(0, W_metric.shape[1], prune_m):
+            #         if ii % prune_m == 0:
+            #             j = ii
+            #             sub_W_metric = W[:, ii:ii+prune_m]
+            #             # 计算当前块的列和行的归一化权重
+            #             # 计算当前子矩阵的列和行的归一化权重
+            #             pr = torch.abs(sub_W_metric) / torch.sum(torch.abs(sub_W_metric), dim=0, keepdim=True)
+            #             pc = torch.abs(sub_W_metric) / torch.sum(torch.abs(sub_W_metric), dim=1, keepdim=True)
+                       
+            #             # 计算熵
+            #             pr_entropy = -pr * torch.log(pr + 1e-9)  # 避免log(0)
+            #             pc_entropy = -pc * torch.log(pc + 1e-9)  # 避免log(0)
+            #             entropy = pr_entropy + pc_entropy
+            #             # print("======")
+            #             # print(entropy.shape)
+            #             # 计算熵度量，这里假设有一个缩放因子
+            #             # print("-----")
+            #             # print(torch.sqrt(wrapped_layers[name].scaler_row).shape)
+            #             W_metric = entropy
+
+            #             # 根据剪枝度量，创建剪枝掩码，将对应的权重位置设为零
+            #             indices_to_prune = torch.topk(W_metric, prune_n, dim=0, largest=False).indices
+            #             for jj in range(prune_n):
+            #                 if (ii + jj) < W.shape[1]:  # 确保不超出索引范围
+            #                     W_mask[:, ii+jj].scatter_(0, indices_to_prune[:, jj], True)
             if prune_n != 0:
+                W_mask = (torch.zeros_like(W) == 1)
                 for ii in range(W_metric.shape[1]):
                     if ii % prune_m == 0:
                         tmp = W_metric[:,ii:(ii+prune_m)].float()
                         W_mask.scatter_(1,ii+torch.topk(tmp, prune_n,dim=1, largest=False)[1], True)
-                subset[name].weight.data[W_mask] = 0
+            # if prune_n != 0:
+            #     # 结构化n:m稀疏性
+            #     for ii in range(W_metric.shape[1]):
+            #         if ii % prune_m == 0:
+            #             tmp = W_metric[:, ii:(ii+prune_m)].float()
+            #             # 计算信息熵
+            #             pr = torch.abs(tmp) / torch.sum(torch.abs(tmp), dim=0, keepdim=True)
+            #             pc = torch.abs(tmp) / torch.sum(torch.abs(tmp), dim=1, keepdim=True)
+            #             entropy = (-pr * torch.log(pr)) - (pc * torch.log(pc))
+                        
+            #             index = torch.topk(entropy, prune_n, dim=1,largest=False)[1]
+                        
+            #             # 将对应的掩码位置设置为True
+            #             W_mask.scatter_(1, ii + index, True)
+            
+            # if prune_n != 0:
+            #     for ii in range(W_metric.shape[1]):
+            #         if ii % prune_m == 0:
+            #             pr = torch.abs(W[:,ii:(ii+prune_m)])/torch.sum(torch.abs(W[:,ii:(ii+prune_m)]), dim=0)
+            #             print(pr.shape)
+            #             pc = torch.abs(W)[ii:(ii+prune_n),:]/torch.sum(torch.abs(W[ii:(ii+prune_n),:]), dim=1)
+            #             print(pc.shape)
+            #             tmp = torch.abs((-pr * torch.log(pr)) - (pc * torch.log(pc))) * torch.sqrt(wrapped_layers[name].scaler_row[:,ii:(ii+prune_m)])
+            #             # tmp = W_metric[:,ii:(ii+prune_m)].float()
+            #             W_mask.scatter_(1,ii+torch.topk(tmp, prune_n,dim=1, largest=False)[1], True)
             else:
                 if args.per_outneuron:
                     sort_res = torch.sort(W_metric, dim=-1, stable=True)
@@ -655,17 +734,20 @@ def prune_semi(args, model, tokenizer, device=torch.device("cuda:0"), prune_n=0,
                         W_mask.scatter_(1, ii + index, True)
             else:
                 if args.per_outneuron:
+                    print("1111111")
                     sort_res = torch.sort(W_metric, dim=-1, stable=True)
                     # unstructured pruning
                     indices = sort_res[1][:,:int(W_metric.shape[1]*args.sparsity_ratio)]
                     W_mask.scatter_(1, indices, True)
                 else:
+                    print("222222")
                     thresh = torch.sort(W_metric.flatten().cuda())[0][int(W.shape[0]* W.shape[1]*args.sparsity_ratio)].cpu()
                     W_mask = (W_metric<=thresh)
                     
                 if args.reconstruction:
                     wrapped_layers[name].fasterprune(args.sparsity_ratio, mask=W_mask)
                 else:
+                    print("333333")
                     subset[name].weight.data[W_mask] = 0  ## set weights to zero 
             wrapped_layers[name].free()
 

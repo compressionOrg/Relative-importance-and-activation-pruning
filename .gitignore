@@ -7,3 +7,5 @@ prune_models/*
 out/*
 test
 logs
+results
+*.sh
