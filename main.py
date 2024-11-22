@@ -1,5 +1,6 @@
 import argparse
 import os 
+import time
 import numpy as np
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, GPT2Tokenizer
@@ -27,7 +28,7 @@ def get_llm(model_name, cache_dir="llm_weights", seqlen=2048):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', type=str, help='LLaMA model')
+    parser.add_argument('--model', type=str, default="Enoch/llama-7b-hf",help='LLaMA model')
     parser.add_argument('--seed', type=int, default=0, help='Seed for sampling the calibration data.')
     parser.add_argument('--calib_dataset', type=str, default="c4", help='Calibration dataset')
     parser.add_argument('--eval_dataset', type=str, default="wikitext2", help='Evaluation dataset')
@@ -36,7 +37,7 @@ def main():
     parser.add_argument('--sparsity_ratio', type=float, default=0.5, help='Sparsity level')
     parser.add_argument("--sparsity_type", type=str, default="unstructured", help="Sparsity type, choose from unstructured, 4:8, 1:4, 2:4, 3:4. \
                         Please choose from the corresponding sparsity ratio")
-    parser.add_argument("--prune_method", type=str, choices=["svd_finetuned", "magnitude", "ri", "wanda", "svd_ri", "svd", "sparsegpt", "ria", "wentropy", "wdentropy", "mentropy", "entropy", "semi"])
+    parser.add_argument("--prune_method", type=str, default="zscore", choices=["dense", "svd_finetuned", "magnitude", "ri", "wanda", "svd_ri", "svd", "sparsegpt", "ria", "wentropy", "wdentropy", "mentropy", "entropy", "semi", "zscore"])
     parser.add_argument("--cache_dir", default="llm_weights", type=str )
     parser.add_argument('--save', action="store_true")
     parser.add_argument('--save_model', type=str, default=None, help='Path to save the pruned model.')
@@ -68,7 +69,16 @@ def main():
 
     model_name = args.model.split("/")[-1]
     print(f"loading llm model {args.model}")
-    model = get_llm(args.model, args.cache_dir, args.seqlen)
+    
+    # Offline load moodel
+    args.model = args.cache_dir + "/models--" + args.model.replace("/", "--") + "/model"
+
+    model = get_llm(args.model, args.cache_dir)
+    # model = get_llm(args.model, args.cache_dir, args.seqlen)
+    print ("model is =================================================================================")
+    print (model.__class__.__name__)
+    print (model)
+    
     model.eval()
     if "opt" in args.model:
         tokenizer = GPT2Tokenizer.from_pretrained(args.model, use_fast=False)
@@ -82,6 +92,8 @@ def main():
     if args.sparsity_ratio != 0:
         print("pruning starts")
         from lib.prune import prune_magnitude, prune_sparsegpt, prune_ria, check_sparsity, prune_entropy, prune_semi
+        if args.prune_method == "zscore":
+            prune_entropy(args, model, tokenizer, device, prune_n=prune_n, prune_m=prune_m)
         if args.prune_method == "semi":
             prune_semi(args, model, tokenizer, device, prune_n=prune_n, prune_m=prune_m)
         elif args.prune_method == "entropy":
@@ -108,6 +120,8 @@ def main():
             prune_magnitude(args, model, tokenizer, device, prune_n=prune_n, prune_m=prune_m)
         elif args.prune_method == "svd_finetuned":
             prune_magnitude(args, model, tokenizer, device, prune_n=prune_n, prune_m=prune_m)
+        elif args.prune_method == "dense":
+            pass
 
         ################################################################
         print("*"*30)
@@ -115,8 +129,12 @@ def main():
         print(f"sparsity sanity check {sparsity_ratio:.4f}")
         print("*"*30)
         ################################################################
+    
+    start_time = time.time()
     ppl_test = eval_ppl(model, tokenizer, args.eval_dataset, args.test_bs, device)
-    print(f"wikitext perplexity {ppl_test}")
+    end_time = time.time()
+    print(f"inference time {end_time - start_time}")
+    print(f"{args.eval_dataset} perplexity {ppl_test}")
 
     if args.save:
         dirname = "results/{}".format(args.model)
@@ -144,8 +162,8 @@ def main():
     torch.cuda.empty_cache()
     
     if args.eval_zero_shot:
-        accelerate=True
-        task_list = ["boolq", "rte", "hellaswag", "arc_challenge", "mnli"]
+        accelerate=False
+        task_list = ["boolq", "rte", "hellaswag", "arc_challenge", "mnli",  "openbookqa"]
         num_shot = 0
         
         

@@ -5,7 +5,7 @@ import random
 import torch
 import os
 # os.environ["HF_DATASETS_OFFLINE"] = "1"
-from datasets import load_dataset
+from datasets import load_dataset,load_from_disk
 
 
 
@@ -23,21 +23,32 @@ class TokenizerWrapper:
 def get_wikitext2(nsamples, seed, seqlen, tokenizer):
     # Load train and test datasets
     # traindata = load_dataset('wikitext', 'wikitext-2-raw-v1', split='train')
-    testdata = load_dataset('wikitext', 'wikitext-2-raw-v1', split='test')
-
+    # testdata = load_dataset('wikitext', 'wikitext-2-raw-v1', split='test')
+    traindata = load_from_disk("datasets/wikitext/train")
+    testdata = load_from_disk("datasets/wikitext/test")
+    
     # Encode datasets
-    # trainenc = tokenizer(" ".join(traindata['text']), return_tensors='pt')
+    trainenc = tokenizer(" ".join(traindata['text']), return_tensors='pt')
     testenc = tokenizer("\n\n".join(testdata['text']), return_tensors='pt')
 
     # Generate samples from training set
     random.seed(seed)
     trainloader = []
-
+    for _ in range(nsamples):
+        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
+        j = i + seqlen
+        inp = trainenc.input_ids[:, i:j]
+        tar = inp.clone()
+        tar[:, :-1] = -100
+        trainloader.append((inp, tar))
     return trainloader, testenc
 
 def get_ptb(nsamples, seed, seqlen, tokenizer):
-    traindata = load_dataset('ptb_text_only', 'penn_treebank', split='train')
-    testdata = load_dataset('ptb_text_only', 'penn_treebank', split='test')
+    # traindata = load_dataset('ptb_text_only', 'penn_treebank', split='train')
+    # testdata = load_dataset('ptb_text_only', 'penn_treebank', split='test')
+    
+    traindata = load_from_disk("datasets/ptb/train")
+    testdata = load_from_disk("datasets/ptb/test")
 
     trainenc = tokenizer(" ".join(traindata['sentence']), return_tensors='pt')
     testenc = tokenizer(" ".join(testdata['sentence']), return_tensors='pt')
@@ -86,8 +97,10 @@ def get_c4(nsamples, seed, seqlen, tokenizer):
     # Load train and validation datasets
     # traindata = load_dataset('c4', data_files={'train': 'c4-train.00000-of-01024.json'}, split='train')
     # valdata = load_dataset('c4', data_files={'validation': 'c4-validation.00000-of-00008.json'}, split='validation')
-    traindata = load_dataset('allenai/c4', data_files={'train': 'en/c4-train.00000-of-01024.json.gz'}, split='train')
-    valdata = load_dataset('allenai/c4', data_files={'validation': 'en/c4-validation.00000-of-00008.json.gz'}, split='validation')
+    # traindata = load_dataset('allenai/c4', data_files={'train': 'en/c4-train.00000-of-01024.json.gz'}, split='train')
+    # valdata = load_dataset('allenai/c4', data_files={'validation': 'en/c4-validation.00000-of-00008.json.gz'}, split='validation')
+    traindata = load_from_disk("datasets/c4/train")
+    valdata = load_from_disk("datasets/c4/validation")
     # Generate samples from training set
     random.seed(seed)
     trainloader = []
@@ -108,7 +121,7 @@ def get_c4(nsamples, seed, seqlen, tokenizer):
     valenc = tokenizer(' '.join(valdata[:1100]['text']), return_tensors='pt')
     valenc = valenc.input_ids[:, :(256 * seqlen)]
     valenc = TokenizerWrapper(valenc)
-    return trainloader, _
+    return trainloader, valenc
 
 # Function to select the appropriate loader based on dataset name
 def get_loaders(name, nsamples=128, seed=0, seqlen=2048, tokenizer=None):
